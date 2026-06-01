@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/app_text_key.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
 
 abstract final class _LoginMock {
   static const hasRecoveryPermission = false;
@@ -45,70 +49,83 @@ class _SecureLoginScreenState extends State<SecureLoginScreen> {
 
   void _submitLogin() {
     if (_formKey.currentState?.validate() ?? false) {
-      widget.onLoginVerified();
+      context.read<AuthBloc>().add(
+        AuthLoginRequested(
+          email: _usernameCtrl.text.trim(),
+          password: _passwordCtrl.text,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 820;
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (ctx, state) {
+        // Login réussi → laisser l'app passer à DeviceTrust
+        if (state is AuthPendingDeviceTrust) {
+          widget.onLoginVerified();
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 820;
 
-        return ColoredBox(
-          color: AppColors.canvas,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: SizedBox(
-                width: constraints.maxWidth - (AppSpacing.lg * 2),
-                height: constraints.maxHeight - (AppSpacing.lg * 2),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x16000000),
-                        blurRadius: 32,
-                        offset: Offset(0, 18),
-                      ),
-                      BoxShadow(
-                        color: Color(0x08000000),
-                        blurRadius: 2,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: isCompact
-                        ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const _LoginVisualPanel(compact: true),
-                              _buildLoginForm(),
-                            ],
-                          )
-                        : SizedBox(
-                            height: double.infinity,
-                            child: Row(
+          return ColoredBox(
+            color: AppColors.canvas,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: SizedBox(
+                  width: constraints.maxWidth - (AppSpacing.lg * 2),
+                  height: constraints.maxHeight - (AppSpacing.lg * 2),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(32),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x16000000),
+                          blurRadius: 32,
+                          offset: Offset(0, 18),
+                        ),
+                        BoxShadow(
+                          color: Color(0x08000000),
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      child: isCompact
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Expanded(
-                                  flex: 10,
-                                  child: _LoginVisualPanel(),
-                                ),
-                                Expanded(flex: 11, child: _buildLoginForm()),
+                                const _LoginVisualPanel(compact: true),
+                                _buildLoginForm(),
                               ],
+                            )
+                          : SizedBox(
+                              height: double.infinity,
+                              child: Row(
+                                children: [
+                                  const Expanded(
+                                    flex: 10,
+                                    child: _LoginVisualPanel(),
+                                  ),
+                                  Expanded(flex: 11, child: _buildLoginForm()),
+                                ],
+                              ),
                             ),
-                          ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -222,6 +239,17 @@ class _LoginCard extends StatelessWidget {
   final VoidCallback onLogin;
   final bool showRecoveryLink;
 
+  void _submit(BuildContext context) {
+    final email = usernameCtrl.text.trim();
+    final password = passwordCtrl.text;
+
+    if (email.isEmpty || password.isEmpty) return;
+
+    context.read<AuthBloc>().add(
+      AuthLoginRequested(email: email, password: password),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final brandColor = AppColors.primaryDark;
@@ -229,7 +257,6 @@ class _LoginCard extends StatelessWidget {
       AppLocale.ar => 'رمز مكوّن من 6 أرقام',
       AppLocale.fr => 'Code à 6 chiffres',
     };
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 82, vertical: 46),
       child: Center(
@@ -370,37 +397,103 @@ class _LoginCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
-                SizedBox(
-                  height: 46,
-                  child: FilledButton(
-                    onPressed: formValid ? onLogin : null,
-                    style:
-                        FilledButton.styleFrom(
-                          backgroundColor: brandColor,
-                          foregroundColor: AppColors.glassSurfaceStrong,
-                          disabledBackgroundColor: AppColors.border.withValues(
-                            alpha: 0.40,
-                          ),
-                          disabledForegroundColor: AppColors.mutedInk
-                              .withValues(alpha: 0.50),
-                          elevation: 0,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                          ),
-                        ).copyWith(
-                          overlayColor: WidgetStatePropertyAll(
-                            AppColors.glassSurfaceStrong.withValues(
-                              alpha: 0.12,
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (ctx, state) {
+                    final isLoading = state is AuthLoading;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ── Message d'erreur ────────────────────────────
+                        if (state is AuthError)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.md,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.sm,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(
+                                    0xFFDC2626,
+                                  ).withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: Color(0xFFDC2626),
+                                    size: 15,
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      state.message,
+                                      style: Theme.of(ctx).textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: const Color(0xFFDC2626),
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
+
+                        // ── Bouton connexion ─────────────────────────────
+                        SizedBox(
+                          height: 46,
+                          child: FilledButton(
+                            // Désactivé si loading ou formulaire invalide
+                            onPressed: (formValid && !isLoading)
+                                ? onLogin
+                                : null,
+                            style:
+                                FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primaryDark,
+                                  foregroundColor: AppColors.glassSurfaceStrong,
+                                  disabledBackgroundColor: AppColors.border
+                                      .withValues(alpha: 0.40),
+                                  disabledForegroundColor: AppColors.mutedInk
+                                      .withValues(alpha: 0.50),
+                                  elevation: 0,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                  ),
+                                ).copyWith(
+                                  overlayColor: WidgetStatePropertyAll(
+                                    AppColors.glassSurfaceStrong.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                  ),
+                                ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : Text(context.tr(AppTextKey.loginAction)),
+                          ),
                         ),
-                    child: Text(context.tr(AppTextKey.loginAction)),
-                  ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.md),
                 // Biometric button hidden until local_auth is integrated
