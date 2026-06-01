@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import 'package:sahty_back_office/features/dashboard/presentation/bloc/dashboard_state.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/app_text_key.dart';
@@ -7,6 +10,10 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/alert_stack.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../data/datasource/dashboard_datasource.dart';
+import '../../data/models/dashboard_models.dart';
+import '../bloc/dashboard_bloc.dart';
+import '../bloc/dashboard_event.dart';
 
 // ──────────────────────────── Mock data (self-contained) ───────────────────────────────
 
@@ -137,28 +144,78 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _PageHeader(),
-        const SizedBox(height: AppSpacing.lg),
+    return BlocProvider(
+      create: (_) =>
+          DashboardBloc(const DashboardDatasource())
+            ..add(DashboardLoadRequested()),
+      child: const _DashboardView(),
+    );
+  }
+}
 
-        // Critical alerts — stacked cards, always at the top of the page
-        AlertStack(alerts: _DashboardMock.clinicalAlerts),
+class _DashboardView extends StatelessWidget {
+  const _DashboardView();
 
-        const SizedBox(height: AppSpacing.xl),
-        _SummaryStrip(),
-        const SizedBox(height: AppSpacing.xl),
-
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 6, child: _AppointmentsCard()),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(flex: 5, child: _ActivityFeedCard()),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<DashboardBloc, DashboardState>(
+      builder: (ctx, state) => switch (state) {
+        DashboardLoading() => _LoadingSkeleton(),
+        DashboardError() => _ErrorView(
+          message: state.message,
+          onRetry: () =>
+              ctx.read<DashboardBloc>().add(DashboardLoadRequested()),
         ),
-      ],
+        DashboardLoaded() => _DashboardContent(data: state.data),
+        _ => _LoadingSkeleton(),
+      },
+    );
+  }
+}
+
+class _DashboardContent extends StatelessWidget {
+  final DashboardData data;
+  const _DashboardContent({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async {
+        context.read<DashboardBloc>().add(DashboardRefreshRequested());
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PageHeader(doctor: data.doctor),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Critical alerts — stacked cards, always at the top of the page
+          ///AlertStack(alerts: _DashboardMock.clinicalAlerts),
+          if (data.criticalAlerts.isNotEmpty)
+            AlertStack(
+              alerts: data.criticalAlerts.map((alert) {
+                return alert.toAlertData();
+              }).toList(),
+            ),
+
+          const SizedBox(height: AppSpacing.xl),
+          _SummaryStrip(kpis: data.kpis),
+          const SizedBox(height: AppSpacing.xl),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 6, child: _AppointmentsCard(rdvs: data.rdvDuJour)),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                flex: 5,
+                child: _ActivityFeedCard(activities: data.recentActivity),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -166,8 +223,15 @@ class DashboardScreen extends StatelessWidget {
 // ── Page Header ───────────────────────────────────────────────────────────────
 
 class _PageHeader extends StatelessWidget {
+  final DoctorInfo doctor;
+  const _PageHeader({required this.doctor});
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final dateFormatted = DateFormat(
+      'd MMMM yyyy, h:mm a',
+      'fr_FR',
+    ).format(now);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -176,7 +240,7 @@ class _PageHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                context.tr(AppTextKey.dashboardGreeting),
+                '${doctor.greeting}, Dr. ${doctor.firstName} ${doctor.lastName}\u00A0!',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
@@ -194,7 +258,7 @@ class _PageHeader extends StatelessWidget {
           ),
         ),
         StatusBadge(
-          label: context.tr(AppTextKey.todayDate),
+          label: dateFormatted,
           tone: BadgeTone.info,
           icon: Icons.calendar_today_outlined,
         ),
@@ -203,11 +267,84 @@ class _PageHeader extends StatelessWidget {
   }
 }
 
+// ── Loading Skeleton ───────────────────────────────────────────────
+class _LoadingSkeleton extends StatelessWidget {
+  const _LoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.xxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header skeleton
+          Row(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Shimmer(width: 220, height: 22),
+                  const SizedBox(height: 6),
+                  _Shimmer(width: 80, height: 14),
+                ],
+              ),
+              const Spacer(),
+              _Shimmer(width: 180, height: 32),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+          // KPI skeleton
+          Row(
+            children: List.generate(
+              5,
+              (_) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.md),
+                  child: _Shimmer(width: double.infinity, height: 64),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+          // Tables skeleton
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 6,
+                child: _Shimmer(width: double.infinity, height: 280),
+              ),
+              const SizedBox(width: AppSpacing.xl),
+              Expanded(
+                flex: 5,
+                child: _Shimmer(width: double.infinity, height: 280),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Summary Strip — Premium KPI Cards ─────────────────────────────────────────
 
 class _SummaryStrip extends StatelessWidget {
+  final List<KpiItem> kpis;
+  const _SummaryStrip({required this.kpis});
   @override
   Widget build(BuildContext context) {
+    final metriques = kpis
+        .map(
+          (kpi) => _KpiMetric(
+            icon: kpi.icon,
+            value: kpi.value, // ← valeur réelle depuis l'API
+            label: kpi.label, // ← label depuis le modèle
+            tone: kpi.tone,
+          ),
+        )
+        .toList();
     final metrics = [
       _KpiMetric(
         icon: Icons.groups_rounded,
@@ -243,9 +380,9 @@ class _SummaryStrip extends StatelessWidget {
 
     return Row(
       children: [
-        for (int i = 0; i < metrics.length; i++) ...[
-          Expanded(child: _KpiCell(metric: metrics[i])),
-          if (i < metrics.length - 1) const SizedBox(width: AppSpacing.sm),
+        for (int i = 0; i < metriques.length; i++) ...[
+          Expanded(child: _KpiCell(metric: metriques[i])),
+          if (i < metriques.length - 1) const SizedBox(width: AppSpacing.sm),
         ],
       ],
     );
@@ -453,14 +590,13 @@ class _KpiCellState extends State<_KpiCell>
 // ── Appointments Table ────────────────────────────────────────────────────────
 
 class _AppointmentsCard extends StatelessWidget {
+  final List<RdvItem> rdvs;
+  const _AppointmentsCard({required this.rdvs});
   @override
   Widget build(BuildContext context) {
     return SectionCard(
       title: context.tr(AppTextKey.appointmentsToday),
-      trailing: StatusBadge(
-        label: '${_DashboardMock.appointments.length}',
-        tone: BadgeTone.info,
-      ),
+      trailing: StatusBadge(label: '${rdvs.length}', tone: BadgeTone.info),
       padding: EdgeInsets.zero,
       child: Column(
         children: [
@@ -473,16 +609,29 @@ class _AppointmentsCard extends StatelessWidget {
             ],
             flexes: const [1, 3, 3, 2],
           ),
-          for (int i = 0; i < _DashboardMock.appointments.length; i++) ...[
-            _AppointmentRow(apt: _DashboardMock.appointments[i]),
-            if (i < _DashboardMock.appointments.length - 1)
-              const Divider(
-                height: 1,
-                thickness: 0.5,
-                indent: 16,
-                endIndent: 16,
+          if (rdvs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Center(
+                child: Text(
+                  'Aucun rendez-vous aujourd\'hui',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.mutedInk),
+                ),
               ),
-          ],
+            )
+          else
+            for (int i = 0; i < rdvs.length; i++) ...[
+              _RdvRealRow(rdv: rdvs[i]),
+              if (i < rdvs.length - 1)
+                const Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  indent: 16,
+                  endIndent: 16,
+                ),
+            ],
           const SizedBox(height: AppSpacing.sm),
         ],
       ),
@@ -507,10 +656,7 @@ class _AppointmentRow extends StatelessWidget {
         isArabic ? 'حرج' : 'Critique',
         BadgeTone.critical,
       ),
-      _RecordStatus.sent => (
-        isArabic ? 'عن بُعد' : 'En ligne',
-        BadgeTone.info,
-      ),
+      _RecordStatus.sent => (isArabic ? 'عن بُعد' : 'En ligne', BadgeTone.info),
       _RecordStatus.blocked => (
         isArabic ? 'محجوب' : 'Bloqué',
         BadgeTone.critical,
@@ -575,9 +721,84 @@ class _AppointmentRow extends StatelessWidget {
   }
 }
 
+class _RdvRealRow extends StatelessWidget {
+  final RdvItem rdv;
+  const _RdvRealRow({required this.rdv});
+
+  @override
+  Widget build(BuildContext context) {
+    final isArabic = context.appLocale == AppLocale.ar;
+
+    final (statusLabel, tone) = switch (rdv.status) {
+      'confirmed' => (isArabic ? 'مؤكد' : 'Confirmé', BadgeTone.normal),
+      'critical' => (isArabic ? 'حرج' : 'Critique', BadgeTone.critical),
+      'teleconsult' => (isArabic ? 'عن بُعد' : 'En ligne', BadgeTone.info),
+      'cancelled' => (isArabic ? 'ملغى' : 'Annulé', BadgeTone.critical),
+      'completed' => (
+        isArabic ? 'تمت المراجعة' : 'Consulté',
+        BadgeTone.neutral,
+      ),
+      'no_show' => (isArabic ? 'غائب' : 'Absent', BadgeTone.neutral),
+      _ => (isArabic ? 'في الانتظار' : 'En attente', BadgeTone.neutral),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm + 2,
+      ),
+      color: rdv.isCritique ? AppColors.critical.withValues(alpha: 0.03) : null,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 1,
+            child: Text(
+              rdv.time,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.mutedInk,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              rdv.patientName,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              rdv.motif.isEmpty ? '—' : rdv.motif,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.mutedInk),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: StatusBadge(label: statusLabel, tone: tone),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Activity Feed Table ───────────────────────────────────────────────────────
 
 class _ActivityFeedCard extends StatelessWidget {
+  final List<ActivityItem> activities;
+  const _ActivityFeedCard({required this.activities});
   @override
   Widget build(BuildContext context) {
     final headers = context.appLocale == AppLocale.ar
@@ -592,20 +813,30 @@ class _ActivityFeedCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          _CleanTableHeader(
-            columns: headers,
-            flexes: const [1, 4, 2, 2],
-          ),
-          for (int i = 0; i < _DashboardMock.activityLog.length; i++) ...[
-            _ActivityRow(entry: _DashboardMock.activityLog[i]),
-            if (i < _DashboardMock.activityLog.length - 1)
-              const Divider(
-                height: 1,
-                thickness: 0.5,
-                indent: 16,
-                endIndent: 16,
+          _CleanTableHeader(columns: headers, flexes: const [1, 4, 2, 2]),
+          if (activities.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Center(
+                child: Text(
+                  'Aucune activité récente',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.mutedInk),
+                ),
               ),
-          ],
+            )
+          else
+            for (int i = 0; i < activities.length; i++) ...[
+              _ActivityRealRow(entry: activities[i]),
+              if (i < activities.length - 1)
+                const Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  indent: 16,
+                  endIndent: 16,
+                ),
+            ],
           const SizedBox(height: AppSpacing.sm),
         ],
       ),
@@ -634,19 +865,81 @@ class _ActivityRow extends StatelessWidget {
         isArabic ? 'محجوب' : 'Bloqué',
         BadgeTone.critical,
       ),
-      _RecordStatus.sent => (
-        isArabic ? 'مرسل' : 'Envoyé',
-        BadgeTone.info,
-      ),
-      _RecordStatus.read => (
-        isArabic ? 'مقروء' : 'Lecture',
-        BadgeTone.neutral,
-      ),
+      _RecordStatus.sent => (isArabic ? 'مرسل' : 'Envoyé', BadgeTone.info),
+      _RecordStatus.read => (isArabic ? 'مقروء' : 'Lecture', BadgeTone.neutral),
     };
 
     final isCritical =
         entry.status == _RecordStatus.alert ||
         entry.status == _RecordStatus.blocked;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm + 2,
+      ),
+      color: isCritical ? AppColors.critical.withValues(alpha: 0.03) : null,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 1,
+            child: Text(
+              entry.time,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.mutedInk,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: Text(
+              entry.event,
+              style: Theme.of(context).textTheme.bodySmall,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              entry.actor,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.mutedInk),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: StatusBadge(label: statusLabel, tone: tone),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityRealRow extends StatelessWidget {
+  final ActivityItem entry;
+  const _ActivityRealRow({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final isArabic = context.appLocale == AppLocale.ar;
+
+    final (statusLabel, tone) = switch (entry.status) {
+      'valide' => (isArabic ? 'معتمد' : 'Validé', BadgeTone.normal),
+      'alerte' => (isArabic ? 'تنبيه' : 'Alerte', BadgeTone.critical),
+      'bloque' => (isArabic ? 'محجوب' : 'Bloqué', BadgeTone.critical),
+      'envoye' => (isArabic ? 'مرسل' : 'Envoyé', BadgeTone.info),
+      _ => (isArabic ? 'مقروء' : 'Lecture', BadgeTone.neutral),
+    };
+
+    final isCritical = entry.status == 'alerte' || entry.status == 'bloque';
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -740,6 +1033,58 @@ class _CleanTableHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Shimmer extends StatelessWidget {
+  final double width, height;
+  const _Shimmer({required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(6),
+      ),
+    );
+  }
+}
+
+// ── Error View ─────────────────────────────────────────────────────
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: AppColors.mutedInk),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.border,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Réessayer'),
+          ),
         ],
       ),
     );
