@@ -36,7 +36,7 @@ class ApiClient {
         .post(
           Uri.parse(url),
           headers: _headers(requireAuth),
-          body:    jsonEncode(body),
+          body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 15));
 
@@ -46,16 +46,16 @@ class ApiClient {
   // ── POST Auth (format form-urlencoded) ────────────────────────
   static Future<Map<String, dynamic>> postAuth(
     String url,
-    Map<String, String> body,
+    Map<String, dynamic> body,
   ) async {
     final response = await _client
         .post(
           Uri.parse(url),
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'apikey':       ApiEndpoints.anonKey,
+            'Content-Type': 'application/json',
+            'apikey': ApiEndpoints.anonKey,
           },
-          body: body,
+          body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 15));
 
@@ -67,7 +67,9 @@ class ApiClient {
 
     throw ApiError.fromStatusCode(
       response.statusCode,
-      decoded['error_description'] ?? decoded['msg'] ?? 'Erreur d\'authentification',
+      decoded['error_description'] ??
+          decoded['msg'] ??
+          'Erreur d\'authentification',
     );
   }
 
@@ -75,7 +77,7 @@ class ApiClient {
   static Map<String, String> _headers(bool requireAuth) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
-      'apikey':       ApiEndpoints.anonKey,
+      'apikey': ApiEndpoints.anonKey,
     };
 
     if (requireAuth) {
@@ -96,9 +98,9 @@ class ApiClient {
       body = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
       throw ApiError(
-        message:    'Réponse invalide du serveur',
+        message: 'Réponse invalide du serveur',
         statusCode: response.statusCode,
-        type:       ApiErrorType.serverError,
+        type: ApiErrorType.serverError,
       );
     }
 
@@ -118,5 +120,28 @@ class ApiClient {
           body['message'] as String? ??
           'Erreur ${response.statusCode}',
     );
+  }
+
+  static Future<Map<String, dynamic>> getWithJwt(
+    String url, {
+    required String jwt,
+    Map<String, String>? queryParams,
+  }) async {
+    final uri = queryParams != null
+        ? Uri.parse(url).replace(queryParameters: queryParams)
+        : Uri.parse(url);
+
+    final response = await _client
+        .get(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': ApiEndpoints.anonKey,
+            'Authorization': 'Bearer $jwt',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+
+    return _parse(response);
   }
 }
