@@ -167,7 +167,7 @@ Switch language from the locale control in the top bar (French ↔ Arabic, LTR �
 
 ## Project structure
 
-```
+``` Old structure
 lib/
 ├── main.dart                          # App entry point
 ├── app/
@@ -202,8 +202,174 @@ assets/
 
 test/
 └── widget_test.dart                   # Login → device trust → dashboard flow
-```
 
+``` Updated structure
+lib/
+├── main.dart
+│
+├── app/
+│   ├── sahhti_back_office_app.dart    ← Root app + gates auth
+│   ├── startup_splash_screen.dart
+│   ├── router/
+│   │   ├── app_route.dart             ← Enum routes + sections sidebar
+│   │   └── app_router.dart            ← Route → Screen mapping
+│   └── shell/
+│       └── back_office_shell.dart     ← Layout: Sidebar + TopBar + Content
+│
+├── core/
+│   ├── api/
+│   │   ├── api_client.dart            ← Client HTTP centralisé (invoke functions)
+│   │   ├── api_endpoints.dart         ← Toutes les URLs des Edge Functions
+│   │   └── api_error.dart             ← Gestion erreurs API
+│   ├── l10n/
+│   │   ├── app_text_key.dart          ← Enum toutes les clés de traduction
+│   │   └── app_localizations.dart     ← Strings FR + AR
+│   ├── services/
+│   │   ├── session_service.dart       ← JWT + rôle + patient_session actuel
+│   │   └── notification_service.dart  ← FCM token registration
+│   ├── theme/
+│   │   ├── app_colors.dart            ← Couleurs médicales sémantiques
+│   │   ├── app_spacing.dart           ← Espacements + dimensions sidebar
+│   │   └── app_theme.dart             ← ThemeData Material 3
+│   └── widgets/
+│       ├── async_state_widget.dart    ← Loading/Error/Empty/NoPermission
+│       ├── section_card.dart          ← Card standard contenu
+│       ├── metric_card.dart           ← KPI card (chiffre + label + trend)
+│       ├── alert_stack.dart           ← Stack d'alertes médicales
+│       └── confirmation_dialog.dart   ← Dialog confirmation actions sensibles
+│
+├── features/
+│   │
+│   ├── auth/
+│   │   ├── data/
+│   │   │   └── auth_datasource.dart      ← login email/password → JWT
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── auth_bloc.dart
+│   │       │   ├── auth_event.dart
+│   │       │   └── auth_state.dart
+│   │       └── screens/
+│   │           ├── login_screen.dart     ← Email + Password + OTP
+│   │           └── device_trust_screen.dart ← Vérification appareil
+│   │
+│   ├── dashboard/
+│   │   ├── data/
+│   │   │   └── dashboard_datasource.dart ← admin-get-stats
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── dashboard_bloc.dart
+│   │       │   ├── dashboard_event.dart
+│   │       │   └── dashboard_state.dart
+│   │       └── screens/
+│   │           └── dashboard_screen.dart ← KPIs + alertes + RDV + activité
+│   │
+│   ├── patients/
+│   │   ├── data/
+│   │   │   └── patient_search_datasource.dart ← get-doctors-public (admin liste patients)
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── patient_search_bloc.dart
+│   │       │   ├── patient_search_event.dart
+│   │       │   └── patient_search_state.dart
+│   │       └── screens/
+│   │           ├── patient_search_screen.dart  ← Recherche NNI/nom + filtres
+│   │           └── patient_access_screen.dart  ← QR Scan + PIN + session countdown
+│   │
+│   ├── scanner/
+│   │   ├── data/
+│   │   │   └── scanner_datasource.dart   ← doctor-verify-patient-access
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── scanner_bloc.dart
+│   │       │   ├── scanner_event.dart
+│   │       │   └── scanner_state.dart
+│   │       └── widgets/
+│   │           ├── qr_camera_widget.dart  ← Flux caméra + détection QR
+│   │           └── pin_input_widget.dart  ← 4 cases PIN avec auto-focus
+│   │
+│   ├── medical_record/
+│   │   ├── data/
+│   │   │   └── dossier_datasource.dart   ← doctor-get-patient-dossier
+│   │   │                                    doctor-add-medical-record
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── dossier_bloc.dart
+│   │       │   ├── dossier_event.dart
+│   │       │   └── dossier_state.dart
+│   │       └── screens/
+│   │           ├── medical_overview_screen.dart  ← Vue générale consultation
+│   │           ├── timeline_screen.dart          ← Historique chronologique
+│   │           ├── allergies_screen.dart         ← Allergies + sévérité
+│   │           ├── prescriptions_screen.dart     ← Ordonnances + ajout
+│   │           ├── labs_screen.dart              ← Analyses
+│   │           ├── imaging_screen.dart           ← Imagerie + fichiers
+│   │           ├── vaccines_screen.dart          ← Carnet vaccination
+│   │           └── vitals_screen.dart            ← Graphiques fl_chart
+│   │
+│   ├── operations/
+│   │   ├── data/
+│   │   │   └── agenda_datasource.dart    ← doctor-get-agenda
+│   │   │                                    doctor-update-appointment
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── agenda_bloc.dart
+│   │       │   ├── agenda_event.dart
+│   │       │   └── agenda_state.dart
+│   │       └── screens/
+│   │           ├── appointments_screen.dart ← Calendrier semaine/mois
+│   │           └── queue_screen.dart        ← File d'attente du jour
+│   │
+│   ├── communication/
+│   │   ├── data/
+│   │   │   └── messaging_datasource.dart ← doctor-get-conversations (futur)
+│   │   │                                    doctor-send-message (futur)
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── messaging_bloc.dart
+│   │       │   ├── messaging_event.dart
+│   │       │   └── messaging_state.dart
+│   │       └── screens/
+│   │           └── messaging_screen.dart   ← Layout 3 colonnes: liste/chat/info
+│   │
+│   ├── administration/
+│   │   ├── data/
+│   │   │   └── admin_datasource.dart     ← admin-create-user
+│   │   │                                    admin-get-stats
+│   │   └── presentation/
+│   │       ├── bloc/
+│   │       │   ├── admin_bloc.dart
+│   │       │   ├── admin_event.dart
+│   │       │   └── admin_state.dart
+│   │       └── screens/
+│   │           ├── administration_screen.dart ← Gestion rôles + utilisateurs
+│   │           └── audit_logs_screen.dart     ← Journal accès dossiers
+│   │
+│   └── pharmacien/
+│       ├── data/
+│       │   └── pharmacien_datasource.dart ← pharmacist-get-prescription
+│       │                                     pharmacist-dispense (futur)
+│       └── presentation/
+│           ├── bloc/
+│           │   ├── pharmacien_bloc.dart
+│           │   ├── pharmacien_event.dart
+│           │   └── pharmacien_state.dart
+│           └── screens/
+│               ├── scanner_ordonnance_screen.dart ← QR ordonnance
+│               └── dispensations_screen.dart      ← Historique dispensations
+│
+└── shared/
+    └── mock_data/                         ← Données mockées (dev uniquement)
+        ├── mock_patients.dart
+        ├── mock_appointments.dart
+        └── mock_vitals.dart
+test/
+├── unit/
+│   ├── auth_bloc_test.dart
+│   ├── scanner_bloc_test.dart
+│   ├── dossier_bloc_test.dart
+│   └── agenda_bloc_test.dart
+└── widget/
+    └── login_to_dashboard_test.dart       ← Flux Login → DeviceTrust → Shell
 ---
 
 ## Architecture
