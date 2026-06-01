@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/l10n/app_localizations.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
+import '../features/auth/data/datasource/auth_datasource.dart';
+import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/auth/presentation/screens/device_trust_screen.dart';
 import '../features/auth/presentation/screens/secure_login_screen.dart';
 import 'router/app_route.dart';
@@ -97,81 +100,84 @@ class _SahhtiBackOfficeAppState extends State<SahhtiBackOfficeApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AppLocalizationScope(
-      locale: _locale,
-      onLocaleChanged: (locale) => setState(() => _locale = locale),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Sahty Back Office',
-        theme: AppTheme.light,
-        locale: _locale.locale,
-        supportedLocales: AppLocale.values.map((locale) => locale.locale),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: Builder(
-          builder: (context) {
-            if (_showStartupSplash) {
+    return BlocProvider(
+      create: (_) => AuthBloc(const AuthDatasource()),
+      child: AppLocalizationScope(
+        locale: _locale,
+        onLocaleChanged: (locale) => setState(() => _locale = locale),
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Sahty Back Office',
+          theme: AppTheme.light,
+          locale: _locale.locale,
+          supportedLocales: AppLocale.values.map((locale) => locale.locale),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: Builder(
+            builder: (context) {
+              if (_showStartupSplash) {
+                return Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: StartupSplashScreen(
+                    onFinished: () {
+                      if (!mounted) return;
+                      setState(() => _showStartupSplash = false);
+                    },
+                  ),
+                );
+              }
+      
+              if (!_loginVerified) {
+                return Directionality(
+                  textDirection: context.appDirection,
+                  child: Scaffold(
+                    body: ColoredBox(
+                      color: AppColors.canvas,
+                      child: SafeArea(
+                        child: SecureLoginScreen(onLoginVerified: _verifyLogin),
+                      ),
+                    ),
+                  ),
+                );
+              }
+      
+              if (!_deviceTrusted) {
+                return Directionality(
+                  textDirection: context.appDirection,
+                  child: Scaffold(
+                    body: SafeArea(
+                      child: DeviceTrustScreen(onDeviceApproved: _approveDevice),
+                    ),
+                  ),
+                );
+              }
+      
+              // ValueListenableBuilder: only BackOfficeShell rebuilds on
+              // route change. The IndexedStack keeps every screen alive —
+              // navigation is instant (no screen destroy / recreate).
               return Directionality(
-                textDirection: TextDirection.ltr,
-                child: StartupSplashScreen(
-                  onFinished: () {
-                    if (!mounted) return;
-                    setState(() => _showStartupSplash = false);
+                textDirection: context.appDirection,
+                child: ValueListenableBuilder<AppRoute>(
+                  valueListenable: _routeNotifier,
+                  builder: (context, route, _) {
+                    final index = _shellRoutes.indexOf(route);
+                    return BackOfficeShell(
+                      selectedRoute: route,
+                      onRouteSelected: _selectRoute,
+                      visibleRoutes: _visibleRoutes,
+                      child: IndexedStack(
+                        index: index < 0 ? 0 : index,
+                        children: _allScreens!,
+                      ),
+                    );
                   },
                 ),
               );
-            }
-
-            if (!_loginVerified) {
-              return Directionality(
-                textDirection: context.appDirection,
-                child: Scaffold(
-                  body: ColoredBox(
-                    color: AppColors.canvas,
-                    child: SafeArea(
-                      child: SecureLoginScreen(onLoginVerified: _verifyLogin),
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            if (!_deviceTrusted) {
-              return Directionality(
-                textDirection: context.appDirection,
-                child: Scaffold(
-                  body: SafeArea(
-                    child: DeviceTrustScreen(onDeviceApproved: _approveDevice),
-                  ),
-                ),
-              );
-            }
-
-            // ValueListenableBuilder: only BackOfficeShell rebuilds on
-            // route change. The IndexedStack keeps every screen alive —
-            // navigation is instant (no screen destroy / recreate).
-            return Directionality(
-              textDirection: context.appDirection,
-              child: ValueListenableBuilder<AppRoute>(
-                valueListenable: _routeNotifier,
-                builder: (context, route, _) {
-                  final index = _shellRoutes.indexOf(route);
-                  return BackOfficeShell(
-                    selectedRoute: route,
-                    onRouteSelected: _selectRoute,
-                    visibleRoutes: _visibleRoutes,
-                    child: IndexedStack(
-                      index: index < 0 ? 0 : index,
-                      children: _allScreens!,
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );
