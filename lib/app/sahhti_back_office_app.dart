@@ -12,7 +12,7 @@ import '../features/auth/presentation/screens/device_trust_screen.dart';
 import '../features/auth/presentation/screens/secure_login_screen.dart';
 import 'router/app_route.dart';
 import 'router/app_router.dart';
-import 'shell/back_office_shell.dart';
+import 'shell/presentation/screens/back_office_shell.dart';
 import 'startup_splash_screen.dart';
 
 class SahhtiBackOfficeApp extends StatefulWidget {
