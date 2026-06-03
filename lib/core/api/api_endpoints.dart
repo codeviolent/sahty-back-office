@@ -38,6 +38,7 @@ class ApiEndpoints {
   static const String doctorGetPatientDossier =
       '$_base/doctor-get-patient-dossier';
   static const String doctorGetAgenda = '$_base/doctor-get-agenda';
+  static const String doctorGetFileAttente = '$_base/doctor-get-file-attente';
   static const String doctorUpdateAppointment =
       '$_base/doctor-update-appointment';
   static const String doctorAddMedicalRecord =

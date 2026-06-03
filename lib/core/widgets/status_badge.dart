@@ -19,7 +19,7 @@ class StatusBadge extends StatelessWidget {
 
   Color get _backgroundColor => switch (tone) {
     BadgeTone.critical => AppColors.critical.withValues(alpha: 0.12),
-    BadgeTone.warning => const Color(0xFFFFF3CD),
+    BadgeTone.warning => AppColors.warning.withValues(alpha: 0.12),
     BadgeTone.info => const Color(0xFFD1ECF1),
     BadgeTone.normal => const Color(0xFFD4EDDA),
     BadgeTone.neutral => AppColors.border.withValues(alpha: 0.55),

@@ -26,6 +26,7 @@ class DashboardDatasource {
     ]);
 
     final stats    = results[0] as Map<String, dynamic>;
+    log('[DashboardDatasource] Stats chargées: $stats');
     final agenda   = results[1] as List<dynamic>;
     final activity = results[2] as List<dynamic>;
 
@@ -44,9 +45,11 @@ class DashboardDatasource {
 
     // ── Alertes critiques depuis les stats du médecin ────────────
     final alertsRaw = stats['criticalAlerts'] as List<dynamic>? ?? [];
+    log('[DashboardDatasource] Alertes brutes: ${alertsRaw.length}');
     final criticalAlerts = alertsRaw
         .map((e) => AlertItem.fromJson(e as Map<String, dynamic>))
         .toList();
+    log('[DashboardDatasource] Alertes critiques: ${criticalAlerts.length}');
 
     // ── RDV du jour depuis l'agenda ──────────────────────────────
     final rdvList = agenda
