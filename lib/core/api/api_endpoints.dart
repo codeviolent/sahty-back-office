@@ -45,6 +45,7 @@ class ApiEndpoints {
       '$_base/doctor-add-medical-record';
   static const String doctorGetStats = '$_base/doctor-get-stats';
   static const String getMyProfile = '$_base/get-my-profile';
+  static const String doctorGetPatients = '$_base/doctor-get-patients';
 
   // ── Admin ─────────────────────────────────────────────────────
   static const String adminGetStats = '$_base/admin-get-stats';
