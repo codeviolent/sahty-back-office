@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/l10n/app_localizations.dart';
+import '../core/services/session_service.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_theme.dart';
@@ -91,9 +92,13 @@ class _SahhtiBackOfficeAppState extends State<SahhtiBackOfficeApp> {
 
   void _approveDevice() {
     _initScreens();
+    final role = SessionService.role ?? 'medecin';
+    final routesForRole = _shellRoutes
+        .where((route) => route.isAllowedFor(role))
+        .toList(growable: false);
     setState(() {
       _deviceTrusted = true;
-      _visibleRoutes = _shellRoutes;
+      _visibleRoutes = routesForRole;
     });
     _routeNotifier.value = AppRoute.dashboard;
   }
@@ -129,7 +134,7 @@ class _SahhtiBackOfficeAppState extends State<SahhtiBackOfficeApp> {
                   ),
                 );
               }
-      
+
               if (!_loginVerified) {
                 return Directionality(
                   textDirection: context.appDirection,
@@ -143,18 +148,20 @@ class _SahhtiBackOfficeAppState extends State<SahhtiBackOfficeApp> {
                   ),
                 );
               }
-      
+
               if (!_deviceTrusted) {
                 return Directionality(
                   textDirection: context.appDirection,
                   child: Scaffold(
                     body: SafeArea(
-                      child: DeviceTrustScreen(onDeviceApproved: _approveDevice),
+                      child: DeviceTrustScreen(
+                        onDeviceApproved: _approveDevice,
+                      ),
                     ),
                   ),
                 );
               }
-      
+
               // ValueListenableBuilder: only BackOfficeShell rebuilds on
               // route change. The IndexedStack keeps every screen alive —
               // navigation is instant (no screen destroy / recreate).
