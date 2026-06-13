@@ -31,6 +31,7 @@ class ApiEndpoints {
   static const String getDoctorAvailabilities =
       '$_base/get-doctor-availabilities';
   static const String getUserRole = '$_base/get-user-role';
+  static const String getMessages      = '$_base/get-messages';
 
   // ── Médecin ───────────────────────────────────────────────────
   static const String doctorVerifyPatientAccess =
@@ -50,6 +51,9 @@ class ApiEndpoints {
   // ── Admin ─────────────────────────────────────────────────────
   static const String adminGetStats = '$_base/admin-get-stats';
   static const String adminCreateUser = '$_base/admin-create-user';
+  static const String adminGetUsers = '$_base/admin-get-users';
+  static const String adminDeleteUser = '$_base/admin-delete-user';
+  static const String adminGetAccessLogs = '$_base/admin-get-access-logs';
 
   // ── Pharmacien ────────────────────────────────────────────────
   static const String pharmacistGetPrescription =

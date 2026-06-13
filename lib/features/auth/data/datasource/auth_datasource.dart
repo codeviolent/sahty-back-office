@@ -1,9 +1,12 @@
 import 'dart:developer';
 
+import 'package:http/http.dart' as http;
 import 'package:sahty_back_office/features/auth/data/models/auth_result.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_endpoints.dart';
+import '../../../../core/services/session_service.dart';
 import '../models/auth_user_model.dart';
 
 class AuthDatasource {
@@ -68,11 +71,26 @@ class AuthDatasource {
   // ── Déconnexion ───────────────────────────────────────────────
   Future<void> logout() async {
     try {
-      await ApiClient.post(ApiEndpoints.logout, {}, requireAuth: true);
-      log('[AuthDatasource] Déconnecté');
+      final jwt = SessionService.jwt;
+      if (jwt == null) {
+        log('[AuthDatasource] Pas de JWT — logout local seulement');
+        return;
+      }
+      // Appel direct avec le JWT capturé avant tout clear()
+      final response = await http
+          .post(
+            Uri.parse('${ApiEndpoints.logout}?scope=local'),
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': ApiEndpoints.anonKey,
+              'Authorization': 'Bearer $jwt', // ← JWT capturé avant clear()
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+
+      log('[AuthDatasource] Logout HTTP ${response.statusCode}');
     } catch (e) {
       log('[AuthDatasource] Erreur logout (ignorée): $e');
-      // Ignorer les erreurs de logout — toujours vider la session locale
     }
   }
 }

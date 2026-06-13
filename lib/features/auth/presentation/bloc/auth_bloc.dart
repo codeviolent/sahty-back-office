@@ -97,8 +97,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLogoutRequested event,
     Emitter<AuthState> emit,
   ) async {
+    // ✅ Éviter les appels multiples si déjà en cours ou déjà déconnecté
+    if (state is AuthLoading || state is AuthLoggedOut) return;
+
     emit(AuthLoading());
-    await _datasource.logout();
+    await _datasource.logout(); // JWT encore valide ici
     SessionService.clear();
     log('[AuthBloc] Déconnecté');
     emit(AuthLoggedOut());

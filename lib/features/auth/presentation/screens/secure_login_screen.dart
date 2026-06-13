@@ -334,69 +334,68 @@ class _LoginCard extends StatelessWidget {
                   autovalidateMode: AutovalidateMode.onUserInteraction,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _LoginFieldLabel(label: context.tr(AppTextKey.otp)),
-                const SizedBox(height: AppSpacing.xs),
-                TextFormField(
-                  controller: otpCtrl,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  decoration: _loginInputDecoration(
-                    context,
-                    hintText: otpHint,
-                    icon: Icons.pin_outlined,
-                  ).copyWith(counterText: ''),
-                  validator: (v) => (v == null || v.length != 6) ? '' : null,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                ),
-                const SizedBox(height: AppSpacing.sm),
+                // _LoginFieldLabel(label: context.tr(AppTextKey.otp)),
+                // const SizedBox(height: AppSpacing.xs),
+                // TextFormField(
+                //   controller: otpCtrl,
+                //   keyboardType: TextInputType.number,
+                //   maxLength: 6,
+                //   decoration: _loginInputDecoration(
+                //     context,
+                //     hintText: otpHint,
+                //     icon: Icons.pin_outlined,
+                //   ).copyWith(counterText: ''),
+                //   validator: (v) => (v == null || v.length != 6) ? '' : null,
+                //   autovalidateMode: AutovalidateMode.onUserInteraction,
+                // ),
+                // const SizedBox(height: AppSpacing.sm),
 
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: TextButton(
-                    onPressed: showRecoveryLink ? () {} : null,
-                    style: TextButton.styleFrom(
-                      foregroundColor: brandColor,
-                      disabledForegroundColor: brandColor,
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 28),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    child: Text(context.tr(AppTextKey.recoveryLink)),
-                  ),
-                ),
+                // Align(
+                //   alignment: AlignmentDirectional.centerEnd,
+                //   child: TextButton(
+                //     onPressed: showRecoveryLink ? () {} : null,
+                //     style: TextButton.styleFrom(
+                //       foregroundColor: brandColor,
+                //       disabledForegroundColor: brandColor,
+                //       padding: EdgeInsets.zero,
+                //       minimumSize: const Size(0, 28),
+                //       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                //       textStyle: Theme.of(context).textTheme.labelSmall,
+                //     ),
+                //     child: Text(context.tr(AppTextKey.recoveryLink)),
+                //   ),
+                // ),
                 const SizedBox(height: AppSpacing.lg),
 
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () => onToggleDeviceTrust(!requestDeviceTrust),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 17,
-                          height: 17,
-                          child: Checkbox.adaptive(
-                            value: requestDeviceTrust,
-                            onChanged: (v) => onToggleDeviceTrust(v ?? false),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            context.tr(AppTextKey.rememberDevice),
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
+                // InkWell(
+                //   borderRadius: BorderRadius.circular(8),
+                //   onTap: () => onToggleDeviceTrust(!requestDeviceTrust),
+                //   child: Padding(
+                //     padding: const EdgeInsets.symmetric(vertical: 2),
+                //     child: Row(
+                //       children: [
+                //         SizedBox(
+                //           width: 17,
+                //           height: 17,
+                //           child: Checkbox.adaptive(
+                //             value: requestDeviceTrust,
+                //             onChanged: (v) => onToggleDeviceTrust(v ?? false),
+                //             materialTapTargetSize:
+                //                 MaterialTapTargetSize.shrinkWrap,
+                //           ),
+                //         ),
+                //         const SizedBox(width: AppSpacing.sm),
+                //         Expanded(
+                //           child: Text(
+                //             context.tr(AppTextKey.rememberDevice),
+                //             style: Theme.of(context).textTheme.labelSmall,
+                //           ),
+                //         ),
+                //       ],
+                //     ),
+                //   ),
+                // ),
+                // const SizedBox(height: AppSpacing.lg),
                 BlocBuilder<AuthBloc, AuthState>(
                   builder: (ctx, state) {
                     final isLoading = state is AuthLoading;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:sahty_back_office/features/auth/presentation/bloc/auth_event.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/app_text_key.dart';
@@ -8,6 +9,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/glass_panel.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../../../features/auth/presentation/bloc/auth_state.dart';
 import '../../../router/app_route.dart';
 import '../../data/datasource/profile_panel_datasource.dart';
 import '../../data/models/profile_models.dart';
@@ -48,71 +51,78 @@ class _BackOfficeShellState extends State<BackOfficeShell> {
         widget.selectedRoute.section != AppSection.security;
     final showRightPanel = canShowRightPanel && _profilePanelVisible;
 
-    return BlocProvider(
-      create: (_) =>
-          ProfilePanelBloc(const ProfilePanelDatasource())
-            ..add(ProfilePanelLoadRequested()),
-      child: Scaffold(
-        body: _LuxuryCanvas(
-          child: Row(
-            children: [
-              _Sidebar(
-                selectedRoute: widget.selectedRoute,
-                onRouteSelected: widget.onRouteSelected,
-                visibleRoutes: widget.visibleRoutes,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    0,
-                    AppSpacing.shellInset,
-                    AppSpacing.shellInset,
-                    AppSpacing.shellInset,
-                  ),
-                  child: GlassPanel(
-                    radius: AppSpacing.panelRadius,
-                    color: AppColors.surface,
-                    blur: 0,
-                    borderColor: AppColors.borderFaint,
-                    shadows: AppColors.floatingShadow,
-                    child: Column(
-                      children: [
-                        _TopBar(
-                          profilePanelVisible: showRightPanel,
-                          onProfilePressed: canShowRightPanel
-                              ? _toggleProfilePanel
-                              : null,
-                        ),
-                        const Divider(),
-                        Expanded(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Each screen owns its scroll via IndexedStack wrapper.
-                              // SingleChildScrollView removed from shell to eliminate
-                              // a shared scroll that caused cross-screen layout overhead.
-                              Expanded(child: widget.child),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 180),
-                                switchInCurve: Curves.easeOutCubic,
-                                switchOutCurve: Curves.easeInCubic,
-                                child: showRightPanel
-                                    ? const _RightContextPanel(
-                                        key: ValueKey('right-profile-panel'),
-                                      )
-                                    : const SizedBox.shrink(
-                                        key: ValueKey('right-profile-hidden'),
-                                      ),
-                              ),
-                            ],
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthLoggedOut) {
+          widget.onRouteSelected(AppRoute.secureLogin); // ← retour login
+        }
+      },
+      child: BlocProvider(
+        create: (_) =>
+            ProfilePanelBloc(const ProfilePanelDatasource())
+              ..add(ProfilePanelLoadRequested()),
+        child: Scaffold(
+          body: _LuxuryCanvas(
+            child: Row(
+              children: [
+                _Sidebar(
+                  selectedRoute: widget.selectedRoute,
+                  onRouteSelected: widget.onRouteSelected,
+                  visibleRoutes: widget.visibleRoutes,
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      0,
+                      AppSpacing.shellInset,
+                      AppSpacing.shellInset,
+                      AppSpacing.shellInset,
+                    ),
+                    child: GlassPanel(
+                      radius: AppSpacing.panelRadius,
+                      color: AppColors.surface,
+                      blur: 0,
+                      borderColor: AppColors.borderFaint,
+                      shadows: AppColors.floatingShadow,
+                      child: Column(
+                        children: [
+                          _TopBar(
+                            profilePanelVisible: showRightPanel,
+                            onProfilePressed: canShowRightPanel
+                                ? _toggleProfilePanel
+                                : null,
                           ),
-                        ),
-                      ],
+                          const Divider(),
+                          Expanded(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Each screen owns its scroll via IndexedStack wrapper.
+                                // SingleChildScrollView removed from shell to eliminate
+                                // a shared scroll that caused cross-screen layout overhead.
+                                Expanded(child: widget.child),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 180),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  child: showRightPanel
+                                      ? const _RightContextPanel(
+                                          key: ValueKey('right-profile-panel'),
+                                        )
+                                      : const SizedBox.shrink(
+                                          key: ValueKey('right-profile-hidden'),
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -317,6 +327,9 @@ class _SidebarState extends State<_Sidebar>
   // animateTo starts from the current controller value — so if the user
   // moves the mouse out while the sidebar is half-expanded, the collapse
   // begins from that exact position, not from 1.0.
+  void _submitLogout() {
+    context.read<AuthBloc>().add(AuthLogoutRequested());
+  }
 
   void _onEnter(_) => _ctrl.animateTo(
     1.0,
@@ -371,7 +384,11 @@ class _SidebarState extends State<_Sidebar>
                           iconColW: _iconColW,
                         ),
                       ),
-                      _SidebarFooter(iconColW: _iconColW, textFade: _textFade),
+                      _SidebarFooter(
+                        iconColW: _iconColW,
+                        textFade: _textFade,
+                        onLogin: _submitLogout,
+                      ),
                     ],
                   ),
                 ),
@@ -571,7 +588,12 @@ class _SidebarItem extends StatelessWidget {
 // ── Sidebar Footer ────────────────────────────────────────────────────────────
 
 class _SidebarFooter extends StatelessWidget {
-  const _SidebarFooter({required this.iconColW, required this.textFade});
+  final VoidCallback onLogin;
+  const _SidebarFooter({
+    required this.iconColW,
+    required this.textFade,
+    required this.onLogin,
+  });
 
   final double iconColW;
   final Animation<double> textFade;
@@ -580,76 +602,85 @@ class _SidebarFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 50,
-      child: Row(
-        children: [
-          SizedBox(
-            width: iconColW,
-            child: Center(
-              child: BlocBuilder<ProfilePanelBloc, ProfilePanelState>(
-                builder: (ctx, state) {
-                  final initials = state is ProfilePanelLoaded
-                      ? state.profile.initials
-                      : '?';
-                  return CircleAvatar(
-                    radius: 12,
-                    backgroundColor: Colors.white.withValues(alpha: 0.18),
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (ctx, state) {
+          //final isLogout = state is AuthLoggedOut;
+          return InkWell(
+            highlightColor: Colors.white.withValues(alpha: 0.12),
+            onTap: onLogin,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: iconColW,
+                  child: Center(
+                    child: BlocBuilder<ProfilePanelBloc, ProfilePanelState>(
+                      builder: (ctx, state) {
+                        final initials = state is ProfilePanelLoaded
+                            ? state.profile.initials
+                            : '?';
+                        return CircleAvatar(
+                          radius: 12,
+                          backgroundColor: Colors.white.withValues(alpha: 0.18),
+                          child: Text(
+                            initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
-          Expanded(
-            child: AnimatedBuilder(
-              animation: textFade,
-              builder: (context, child) {
-                final op = textFade.value;
-                if (op <= 0) return const SizedBox.shrink();
-                return Opacity(opacity: op, child: child);
-              },
-              child: BlocBuilder<ProfilePanelBloc, ProfilePanelState>(
-                builder: (ctx, state) {
-                  final name = state is ProfilePanelLoaded
-                      ? state.profile.displayName
-                      : '...';
-                  return Text(
-                    name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
+                  ),
+                ),
+                Expanded(
+                  child: AnimatedBuilder(
+                    animation: textFade,
+                    builder: (context, child) {
+                      final op = textFade.value;
+                      if (op <= 0) return const SizedBox.shrink();
+                      return Opacity(opacity: op, child: child);
+                    },
+                    child: BlocBuilder<ProfilePanelBloc, ProfilePanelState>(
+                      builder: (ctx, state) {
+                        final name = state is ProfilePanelLoaded
+                            ? state.profile.displayName
+                            : '...';
+                        return Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: AppColors.sidebarMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                AnimatedBuilder(
+                  animation: textFade,
+                  builder: (context, child) {
+                    final op = textFade.value;
+                    if (op <= 0) return const SizedBox.shrink();
+                    return Opacity(opacity: op, child: child);
+                  },
+                  child: const Padding(
+                    padding: EdgeInsetsDirectional.only(end: 8),
+                    child: Icon(
+                      Icons.logout_rounded,
                       color: AppColors.sidebarMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      size: 14,
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          AnimatedBuilder(
-            animation: textFade,
-            builder: (context, child) {
-              final op = textFade.value;
-              if (op <= 0) return const SizedBox.shrink();
-              return Opacity(opacity: op, child: child);
-            },
-            child: const Padding(
-              padding: EdgeInsetsDirectional.only(end: 8),
-              child: Icon(
-                Icons.logout_rounded,
-                color: AppColors.sidebarMuted,
-                size: 14,
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

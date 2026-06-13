@@ -1,15 +1,15 @@
 import 'dart:developer';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/services/session_service.dart';
 import '../../data/datasource/profile_panel_datasource.dart';
 import 'profile_panel_event.dart';
 import 'profile_panel_state.dart';
 
-class ProfilePanelBloc
-    extends Bloc<ProfilePanelEvent, ProfilePanelState> {
+class ProfilePanelBloc extends Bloc<ProfilePanelEvent, ProfilePanelState> {
   final ProfilePanelDatasource _datasource;
 
   ProfilePanelBloc(this._datasource) : super(ProfilePanelInitial()) {
-    on<ProfilePanelLoadRequested>   (_onLoad);
+    on<ProfilePanelLoadRequested>(_onLoad);
     on<ProfilePanelRefreshRequested>(_onRefresh);
   }
 
@@ -20,7 +20,9 @@ class ProfilePanelBloc
     emit(ProfilePanelLoading());
     try {
       final profile = await _datasource.loadMyProfile();
-      log('[ProfilePanelBloc] Profil chargé: ${profile.role} — ${profile.displayName}');
+      log(
+        '[ProfilePanelBloc] Profil chargé: ${profile.role} — ${profile.displayName}',
+      );
       emit(ProfilePanelLoaded(profile));
     } catch (e) {
       log('[ProfilePanelBloc] Erreur: $e');

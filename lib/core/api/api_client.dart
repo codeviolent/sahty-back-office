@@ -93,7 +93,9 @@ class ApiClient {
   // ── Parser réponse ────────────────────────────────────────────
   static Map<String, dynamic> _parse(http.Response response) {
     late Map<String, dynamic> body;
-
+    if (response.statusCode == 204 || response.statusCode == 205) {
+      return {};
+    }
     try {
       body = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {

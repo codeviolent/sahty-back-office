@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sahty_back_office/core/widgets/section_dispatcher.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/app_text_key.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/clinical_session_gate.dart';
 import '../../../../core/widgets/section_card.dart';
+import '../../../../core/widgets/section_helpers.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../data/models/dossier_models.dart';
+import '../bloc/dossier/dossier_bloc.dart';
+import '../bloc/dossier/dossier_event.dart';
+import '../bloc/dossier/dossier_state.dart';
 
 abstract final class _VaccinesLayout {
   static const double scheduleMinHeight = 300;
@@ -20,10 +28,41 @@ class VaccinesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ClinicalSessionGate(builder: (s) => _VaccinesBlocView(session: s));
+  }
+}
+
+class _VaccinesBlocView extends StatelessWidget {
+  final PatientSession session;
+  const _VaccinesBlocView({required this.session});
+  @override
+  Widget build(BuildContext context) {
+    return SectionDispatcher(
+      section: DossierSection.vaccinations,
+      builder: (ctx, state, session) {
+        final raw = getSectionData(state, DossierSection.vaccinations) ?? [];
+        final items = raw
+            .map((e) => VaccinationItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return _VaccinesContent(session: session, items: items);
+      },
+    );
+  }
+}
+
+class _VaccinesContent extends StatelessWidget {
+  final PatientSession session;
+  final List<VaccinationItem> items;
+  const _VaccinesContent({required this.session, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    //final active = items.where((i) => i.status == 'active').toList();
+    final allItems = items.toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _VaccinesScheduleCard(),
+        _VaccinesScheduleCard(allItem: allItems),
         const SizedBox(height: AppSpacing.xl),
         const Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,7 +96,8 @@ class _VaccineItem {
 }
 
 class _VaccinesScheduleCard extends StatelessWidget {
-  const _VaccinesScheduleCard();
+  final List<VaccinationItem> allItem;
+  const _VaccinesScheduleCard({required this.allItem});
 
   static const items = [
     _VaccineItem(
@@ -102,9 +142,9 @@ class _VaccinesScheduleCard extends StatelessWidget {
       child: Column(
         children: [
           const _VaccinesHeader(),
-          for (int i = 0; i < items.length; i++) ...[
-            _VaccineRow(item: items[i]),
-            if (i < items.length - 1)
+          for (int i = 0; i < allItem.length; i++) ...[
+            _VaccineRow(item: allItem[i]),
+            if (i < allItem.length - 1)
               const Divider(
                 height: 1,
                 thickness: 0.5,
@@ -163,7 +203,7 @@ class _VaccinesHeader extends StatelessWidget {
 class _VaccineRow extends StatelessWidget {
   const _VaccineRow({required this.item});
 
-  final _VaccineItem item;
+  final VaccinationItem item;
 
   @override
   Widget build(BuildContext context) {
@@ -175,25 +215,29 @@ class _VaccineRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                context.tr(item.vaccineKey),
+                item.vaccineName,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: item.critical ? AppColors.critical : AppColors.ink,
+                  color: item.status == 'pending'
+                      ? AppColors.warning
+                      : AppColors.normal,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
-            Expanded(child: Text(context.tr(item.completedKey))),
-            Expanded(child: Text(context.tr(item.missingKey))),
+            Expanded(child: Text(item.status)),
+            Expanded(child: Text(item.dosesReceived.toString())),
             Expanded(
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: StatusBadge(
-                  label: context.tr(item.alertKey),
-                  tone: item.critical ? BadgeTone.critical : BadgeTone.neutral,
+                  label: item.dosesRequired.toString(),
+                  tone: item.status == 'pending'
+                      ? BadgeTone.warning
+                      : BadgeTone.normal,
                 ),
               ),
             ),
-            Expanded(child: Text(context.tr(item.nextDateKey))),
+            Expanded(child: Text(item.nextDoseDate)),
           ],
         ),
       ),
